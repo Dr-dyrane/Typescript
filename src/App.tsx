@@ -30,6 +30,7 @@ ChartJS.register(
 function App() {
   const [cryptos, setCryptos] = useState<Crypto[] | null>(null);
   const [selected, setSelected] = useState<Crypto | null>();
+  const [range, setRange] = useState<string>("30");
   const [data, setData] = useState<ChartData<"line">>();
   const [options, setOptions] = useState<ChartOptions<"line">>({
     responsive: true,
@@ -51,51 +52,96 @@ function App() {
       setCryptos(response.data);
     });
   }, []);
+
+  useEffect(() => {
+    const url = `https://api.coingecko.com/api/v3/coins/${
+      selected?.id
+    }/market_chart?vs_currency=usd&days=${range}&${
+      range === "01" ? "interval=hourly" : "interval=daily"
+    }`;
+    if (!selected) return;
+    axios.get(url).then((response) => {
+      setData({
+        labels: response.data.prices.map((price: number[]) => {
+          return moment
+            .unix(price[0] / 1000)
+            .format(range === "01" ? "HH:MM" : "MM-DD");
+        }),
+        datasets: [
+          {
+            label: "USD",
+            data: response.data.prices.map((price: number[]) => {
+              return price[1];
+            }),
+            borderColor: "rgb(255, 99, 132)",
+            backgroundColor: "rgba(255, 99, 132, 0.5)",
+          },
+        ],
+      });
+      setOptions({
+        responsive: true,
+        plugins: {
+          legend: {
+            position: "top" as const,
+          },
+          title: {
+            display: true,
+            text:
+              "Price Over The Last " +
+              (range === "01" ? "" : range) +
+              (range === "01" ? " 24 Hours." : " Days."),
+          },
+        },
+      });
+    });
+  }, [selected, range]);
+
   return (
     <div className="p-3">
       <div className="App">
-        <p className="text-center pb-4 text-lg text-gray-50">Crypto Market</p>
-        <select
-          id="selectCrypto"
-          className="bg-slate-700 border border-slate-700 text-gray-50 text-sm rounded-lg focus:ring-gray-50 focus:border-gray-50 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-          onChange={(e) => {
-            const c = cryptos?.find((x) => x.id === e.target.value);
-            setSelected(c);
-            const url = `https://api.coingecko.com/api/v3/coins/${c?.id}/market_chart?vs_currency=usd&days=30&interval=daily`;
-            axios.get(url).then((response) => {
-              setData({
-                labels: response.data.prices.map((price: number[]) => {
-                  return moment.unix(price[0] / 1000).format("MM-DD");
-                }),
-                datasets: [
-                  {
-                    label: "USD",
-                    data: response.data.prices.map((price: number[]) => {
-                      return price[1];
-                    }),
-                    borderColor: "rgb(255, 99, 132)",
-                    backgroundColor: "rgba(255, 99, 132, 0.5)",
-                  },
-                ],
-              });
-            });
-          }}
-          defaultValue="default"
-        >
-          <option value="default">Choose a currency</option>
-          {cryptos
-            ? cryptos.map((crypto) => {
-                return (
-                  <option key={crypto.id} value={crypto.id}>
-                    {crypto.name}
-                  </option>
-                );
-              })
-            : null}
-        </select>
+        <p className="text-center font-bold pb-4 text-lg text-slate-700">
+          Crypto Market
+        </p>
+        <div className="flex">
+          <select
+            id="selectCrypto"
+            className="inline-flex bg-slate-700 border mr-2 border-slate-700 text-gray-50 text-sm rounded-lg focus:ring-gray-50 focus:border-gray-50  p-2"
+            onChange={(e) => {
+              const c = cryptos?.find((x) => x.id === e.target.value);
+              setSelected(c);
+            }}
+          >
+            <option selected hidden value="currency">
+              Currency
+            </option>
+            {cryptos
+              ? cryptos.map((crypto) => {
+                  return (
+                    <option key={crypto.id} value={crypto.id}>
+                      {crypto.name}
+                    </option>
+                  );
+                })
+              : null}
+          </select>
+          <select
+            id="range"
+            className="inline-flex bg-slate-700 border border-slate-700 text-gray-50 text-sm rounded-lg focus:ring-gray-50 focus:border-gray-50  p-2"
+            onChange={(e) => {
+              setRange(e.target.value);
+            }}
+          >
+            <option hidden selected value="range">
+              Range
+            </option>
+            <option value="30">30 Days</option>
+            <option value="07">07 Days</option>
+            <option value="01">01 Day</option>
+          </select>
+        </div>
       </div>
       {selected ? (
-        <div className="py-3 text-center text-gray-50">
+        <div className="py-3 text-center text-slate-700">
           <CryptoSummary crypto={selected} />
         </div>
       ) : null}
